@@ -2,11 +2,12 @@
 
 
 ## Loading and preprocessing the data
-The data 
+Information about the data set can be obtained from the README.md file included with this template including where to download it. A copy of the data is also included in the repository with this file.
+
+
+Here we load the data, and convert the interval column to a format where it is an integer. For example 0 represent the first 5 minute interval, 1 the second and so on. The original formal was an integer consisting of hour and minute combined which is not a continuous value that would be useful for plotting.
 
 ```r
-activity<-read.csv('activity.csv')
-activity$interval<-activity$interval%/%100*12+activity$interval%%100/5
 library(dplyr)
 library(ggplot2)
 ```
@@ -15,11 +16,17 @@ library(ggplot2)
 ## Warning: package 'ggplot2' was built under R version 3.1.2
 ```
 
+```r
+activity<-read.csv('activity.csv')
+activity$interval<-activity$interval%/%100*12+activity$interval%%100/5
+```
+
 ## What is mean total number of steps taken per day?
-We are ignoring missing values, so na.rm=TRUE in the categories
+We want to look at the total steps per day and investigate the distribution. In this analysis, we are ignoring missing values, so na.rm=TRUE in the categories so that the functions can work properly
 
 ```r
 dailymean<-activity %>% group_by(date) %>% summarise(total=sum(steps, na.rm=TRUE))
+#group data via date, take sum of each group
 hist(dailymean$total, breaks=10, xlab='Total Steps Per Day', main='Histogram of Total Daily Steps Taken')
 ```
 
@@ -40,7 +47,9 @@ median(dailymean$total, na.rm=TRUE)
 ```
 ## [1] 10395
 ```
+
 ## What is the average daily activity pattern?
+To get the daily activity pattern, we find the mean of each interval, so instead of grouping by day, we group by interval and take the mean.
 
 ```r
 intervalmean<-activity %>% group_by(interval) %>%summarise(mean=mean(steps,na.rm=TRUE))
@@ -49,38 +58,41 @@ plot(intervalmean$interval, intervalmean$mean, type='l', xlab='Time Interval', y
 
 ![](./PA1_template_files/figure-html/unnamed-chunk-3-1.png) 
 
-Which interval has the maximum
+Here we find which interval has the maximum.
 
 ```r
-intervalmean[which(intervalmean$mean==max(intervalmean$mean)),1]
+maxval<-intervalmean[which(intervalmean$mean==max(intervalmean$mean)),1]
+#convert into hour minute format
+(maxval*5)%/%60*100+(maxval*5)%%60
 ```
 
 ```
-## Source: local data frame [1 x 1]
-## 
 ##   interval
-## 1      103
+## 1      835
 ```
+This corresponds to 8:35 am
+
 ## Imputing missing values
+Several value of the data are missing.
 
 ```r
-sum(is.na(activity$steps))
+sum(is.na(activity$steps)) #number of missing values.
 ```
 
 ```
 ## [1] 2304
 ```
-This accounts for 13% of the possible values 
-I will fill in the NA values with the mean entry for that specific time interval across all days which is implemented as follows.
+This accounts for 13% of the possible values which is a significant amount especially if we want to look at the total steps because missing values act as 0. To replace the missing values, we will fill in the NA values with the mean entry for that specific time interval across all days which is implemented as follows. This will provide an accurate approximation for the missing values.
+
 
 ```r
 naactivity<-merge(activity, intervalmean, by.x='interval', by.y='interval')
-#add columns including the mean of the time interval
+#copy the orignal data and add columns including the mean of the time interval
 naactivity$steps[is.na(naactivity$steps)]<-naactivity$mean[is.na(naactivity$steps)]
 #replace the NA rows with the mean value
 #we would need to sort and remove the extra columns so that the data would be exactly like the original
 
-#make histogram
+#make histogram of the new total, same as first part of assignment
 dailynamean<-naactivity %>% group_by(date) %>% summarise(total=sum(steps))
 hist(dailynamean$total, breaks=10, xlab='Total Steps Per Day', main='Histogram of Total Daily Steps Taken')
 ```
@@ -88,6 +100,7 @@ hist(dailynamean$total, breaks=10, xlab='Total Steps Per Day', main='Histogram o
 ![](./PA1_template_files/figure-html/unnamed-chunk-6-1.png) 
 
 ```r
+#new mean and median values
 mean(dailynamean$total, na.rm=TRUE)
 ```
 
@@ -107,9 +120,13 @@ Both the mean and median increase from the beginning of the assignment because t
 ## Are there differences in activity patterns between weekdays and weekends?
 
 ```r
+#add weekday column
 naactivity<-mutate(naactivity, weekday=weekdays(as.Date(naactivity$date, format='%Y-%m-%d')))
+#define as factor levels, then change factor definition
 naactivity$weekday<-as.factor(naactivity$weekday)
 levels(naactivity$weekday) <- list(weekday="Monday", weekday="Tuesday",weekday="Wednesday",weekday="Thursday",weekday="Friday",weekend="Saturday",weekday="Sunday")
+
+#group by weekday and then plot to see behavior between weekdays and weekend
 weekdayint<-naactivity %>% group_by(weekday, interval) %>% summarise(weekmean=mean(steps))
 qplot(interval, weekmean, data=weekdayint, facets= weekday~., geom='line', ylab='Mean Steps Taken', main='Average steps taken in 5 minute intervals based on day of week')
 ```
